@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Chat Server</title>
+	<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.js"></script>
+	<style type="text/css">
+	#userform{
+		border: 3px solid #f1f1f1;
+	    width: 100%;
+	  	padding: 20px;
+	  	background: url('images/texture1.jpg') no-repeat 60% /cover
+	}
+	body{
+		margin-top:30px;
+	}
+	#messagearea{
+		display: none;
+	}
+	ul li{
+		list-style: none;
+	}
+	
+	.imgcontainer{
+		text-align: center;
+		margin:25px;
+	}
+	.imgavatar{
+		border-radius: 50%;
+	}
+	.btnlogin button{
+		width: 20%;
+
+	}
+	#userform input{
+		padding: 20px;
+	}
+	#chat{
+		background: url('images/text3.jpg') no-repeat 60% /cover
+	}
+	.well{
+	background: transparent;
+    border: none;
+	}
+
+	#onlineuser{
+		background-color: lightgrey
+	}
+	/*.arrow_box {
+    position: relative;
+    background: #88b7d5;
+    border: 4px solid #c2e1f5;
+    height: 45px;
+    width: 68%;
+    float: right;
+}
+
+.arrow_box:after, .arrow_box:before {
+    right: 100%;
+    top: 50%;
+    border: solid transparent;
+    content: " ";
+    height: 0;
+    width: 0;
+    position: absolute;
+    pointer-events: none;
+}
+.arrow_box:before {
+    border-color: rgba(194, 225, 245, 0);
+    border-right-color: #c2e1f5;
+    border-width: 18px;
+    margin-top: -19px;
+}
+.arrow_box:after {
+    border-color: rgba(136, 183, 213, 0);
+    border-right-color: #88b7d5;
+    border-width: 12px;
+    margin-top: -13px;
+}
+*/
+	</style>
+</head>
+<body>
+
+
+<h3 class="text-center">Chat Room</h3>
+
+<div class="container">
+	<div class="row">
+	<div id="usermessagearea">
+		<div class="col-md-12">
+			<form id="userform">
+			<div class="imgcontainer">
+				<img src="images/avatar.png" class="imgavatar">
+			</div>
+			  <div class="form-group">
+			    <label for="username">Username</label>
+			    <input type="text" class="form-control" id="username" placeholder="Enter Username" required>
+			  </div>
+			  <div class="form-group">
+			    <label for="username">Email</label>
+			    <input type="email"  class="form-control" id="useremail" pattern='^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$' placeholder="me@example.com" required>
+			  </div>
+			  <div class="form-group">
+			    <label for="userpassword">Password</label>
+			    <input type="password" class="form-control" id="userpassword" placeholder="Password" required>
+			  </div>
+			  <div class="btnlogin text-center">
+			  <button type="submit" class="btn btn-primary">Login</button>
+			  </div>
+			 
+			</form>
+		</div>
+		</div>
+	</div>
+</div>
+
+<div class="container">
+<div class="row" id="messagearea">
+	<div class="col-md-4">
+		<div class="well" id="onlineuser">
+		<h3 class="text-center">Online User</h3>
+			<ul class="list-group" id="userlist"></ul>
+		</div>
+	</div>
+
+	<div class="col-md-8">
+	<div class="chat" id="chat" style="height: auto;max-height: 400px;overflow:auto;"></div>
+	<form id="messageform">
+	<div class="form-group">
+		<label>Enter Message</label>
+		<textarea class="form-control" id="messagename"></textarea>
+	</div>
+	<button type="submit" class="btn btn-primary" id="messagesubmit">Submit</button>
+	</form>
+	</div>
+</div>
+</div>
+	<script type="text/javascript">
+		$(function(){
+			var socket = io.connect();
+
+			$("#userform").submit(function(e){
+				e.preventDefault();
+				socket.emit("new user",{username:$("#username").val(),password:$("#userpassword").val(),email:$("#useremail").val()})
+				$("#username").val('');
+				$("#usermessagearea").hide();
+				$("#messagearea").show();
+			})
+
+			socket.on("userlist",function(data){
+				console.log(data)
+				var html="";
+				for(var i=0;i<data.length;i++){
+					html += "<li class='list-group-items'>"+data[i]+"<img class='pull-right' style='width:15px;' src='images/green.png'></li>"; 
+				}
+				$("#userlist").html(html)
+				
+			})
+
+			$("#messageform").submit(function(e){
+				e.preventDefault();
+				socket.emit("send message",$("#messagename").val())
+				$("#messagename").val("");
+			})
+
+			socket.on("sendmesg",function(data){
+				$("#chat").prepend("<div class='well'><strong>"+data.user+": </strong>"+data.msg+"</div>")
+			})
+
+			socket.on('notify everyone',function(msg){
+				console.log("bbroad")
+                        // Will explain in next section.
+                        var notification = null;
+            notifyMe(msg.user,msg.comment);
+        });
+
+		})
+		function notifyMe(user,message) {
+			  if (!("Notification" in window)) {
+			    alert("This browser does not support desktop notification");
+			  }
+			  // Let's check if the user is okay to get some notification
+			  else if (Notification.permission === "granted") {
+			    // If it's okay let's create a notification
+			  var options = {
+			        body: message,
+			        dir : "ltr",
+			        icon:'images/icon.png'
+			    };
+			  var notification = new Notification(user + "  Posted a comment ",options);
+			  setTimeout(notification.close.bind(notification), 2000);
+			  }
+			  else if (Notification.permission !== 'denied') {
+			    Notification.requestPermission(function (permission) {
+			      // Whatever the user answers, we make sure we store the information
+			      if (!('permission' in Notification)) {
+			        Notification.permission = permission;
+			      }
+			      // If the user is okay, let's create a notification
+			      if (permission === "granted") {
+			        var options = {
+			                body: message,
+			                dir : "rtl",
+			                icon:'images/icon.png'
+			               
+			        };
+			        var notification = new Notification(user + "  Posted a comment ",options);
+			        setTimeout(notification.close.bind(notification), 2000);
+			      }
+			    });
+			  }
+			}
+	</script>
+
+</div>
+
+</body>
+</html>
